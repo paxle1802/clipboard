@@ -9,8 +9,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     func applicationDidFinishLaunching(_ notification: Notification) {
         let store = SharedState.shared.store
         let monitor = SharedState.shared.monitor
-        panelController = ClipboardPanelController(
+        let controller = ClipboardPanelController(
             store: store, monitor: monitor)
+        panelController = controller
+        SharedState.shared.panelController = controller
     }
 }
 
@@ -20,5 +22,6 @@ final class SharedState {
     static let shared = SharedState()
     let store = ClipboardStore()
     lazy var monitor = ClipboardMonitor(store: store)
+    var panelController: ClipboardPanelController?
     private init() {}
 }

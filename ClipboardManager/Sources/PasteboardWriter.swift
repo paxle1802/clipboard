@@ -27,7 +27,6 @@ struct PasteboardWriter {
         _ item: ClipboardItem, monitor: ClipboardMonitor?
     ) {
         writeToClipboard(item, monitor: monitor)
-        // Just close the panel, don't simulate paste
         NSApp.keyWindow?.orderOut(nil)
     }
 
@@ -71,30 +70,36 @@ struct PasteboardWriter {
         monitor?.syncChangeCount()
     }
 
-    // Close panel, return focus to previous app, simulate Cmd+V
+    // Close panel, activate previous app, simulate Cmd+V
     private static func dismissAndPaste() {
-        // Close our panel and deactivate app to return focus
+        // 1. Close our panel
         for window in NSApp.windows where window.isVisible && window is NSPanel {
             window.orderOut(nil)
         }
 
-        // Small delay to let previous app regain focus, then simulate Cmd+V
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+        // 2. Activate the app that was focused before we showed the panel
+        SharedState.shared.panelController?.activatePreviousApp()
+
+        // 3. Wait for previous app to gain focus, then simulate Cmd+V
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
             simulatePasteKeystroke()
         }
     }
 
     // Simulate Cmd+V keystroke using CGEvent
+    // NOTE: Requires Accessibility permission in System Settings
     private static func simulatePasteKeystroke() {
         let source = CGEventSource(stateID: .hidSystemState)
         // Key code 9 = V key
-        let keyDown = CGEvent(
-            keyboardEventSource: source, virtualKey: 9, keyDown: true)
-        let keyUp = CGEvent(
+        guard let keyDown = CGEvent(
+            keyboardEventSource: source, virtualKey: 9, keyDown: true),
+              let keyUp = CGEvent(
             keyboardEventSource: source, virtualKey: 9, keyDown: false)
-        keyDown?.flags = .maskCommand
-        keyUp?.flags = .maskCommand
-        keyDown?.post(tap: .cghidEventTap)
-        keyUp?.post(tap: .cghidEventTap)
+        else { return }
+
+        keyDown.flags = .maskCommand
+        keyUp.flags = .maskCommand
+        keyDown.post(tap: .cghidEventTap)
+        keyUp.post(tap: .cghidEventTap)
     }
 }

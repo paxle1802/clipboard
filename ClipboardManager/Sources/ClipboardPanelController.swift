@@ -17,6 +17,8 @@ final class ClipboardPanelController: NSObject {
     private let monitor: ClipboardMonitor
     private var statusItem: NSStatusItem?
     private var eventMonitor: Any?
+    // Remember which app was active before we showed our panel
+    private var previousApp: NSRunningApplication?
 
     var isVisible: Bool { panel?.isVisible ?? false }
 
@@ -97,12 +99,19 @@ final class ClipboardPanelController: NSObject {
 
     private func showPanel() {
         guard let panel = panel else { return }
+        // Save the currently active app so we can return focus after paste
+        previousApp = NSWorkspace.shared.frontmostApplication
         positionPanel()
         panel.makeKeyAndOrderFront(nil)
         // Activate app so panel receives keyboard events
         NSApp.activate(ignoringOtherApps: true)
         // Monitor clicks outside panel to dismiss
         startClickMonitor()
+    }
+
+    // Activate the app that was in focus before we opened the panel
+    func activatePreviousApp() {
+        previousApp?.activate()
     }
 
     private func hidePanel() {
