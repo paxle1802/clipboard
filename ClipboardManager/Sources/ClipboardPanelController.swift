@@ -2,6 +2,12 @@ import AppKit
 import KeyboardShortcuts
 import SwiftUI
 
+// Custom panel that accepts key events even as a floating panel
+final class KeyablePanel: NSPanel {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { true }
+}
+
 // Manages a floating NSPanel that displays clipboard history
 // Toggled by global hotkey (Cmd+Shift+V) or menu bar icon click
 @MainActor
@@ -54,13 +60,14 @@ final class ClipboardPanelController: NSObject {
     // MARK: - Panel management
 
     private func setupPanel() {
-        let panel = NSPanel(
+        let panel = KeyablePanel(
             contentRect: NSRect(x: 0, y: 0, width: 320, height: 450),
             styleMask: [.nonactivatingPanel, .titled, .fullSizeContentView],
             backing: .buffered,
             defer: true)
         panel.isFloatingPanel = true
         panel.level = .floating
+        panel.acceptsMouseMovedEvents = true
         panel.titleVisibility = .hidden
         panel.titlebarAppearsTransparent = true
         panel.isMovableByWindowBackground = true
