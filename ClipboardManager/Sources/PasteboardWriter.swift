@@ -73,12 +73,13 @@ struct PasteboardWriter {
 
     // Close panel, return focus to previous app, simulate Cmd+V
     private static func dismissAndPaste() {
-        // Close our panel
-        NSApp.keyWindow?.orderOut(nil)
-        NSApp.hide(nil)
+        // Close our panel and deactivate app to return focus
+        for window in NSApp.windows where window.isVisible && window is NSPanel {
+            window.orderOut(nil)
+        }
 
         // Small delay to let previous app regain focus, then simulate Cmd+V
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
             simulatePasteKeystroke()
         }
     }

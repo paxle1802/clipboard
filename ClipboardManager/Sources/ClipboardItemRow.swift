@@ -26,17 +26,15 @@ struct ClipboardItemRow: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            // Delete button — only visible on hover
-            if isHovered {
-                Button(action: onDelete) {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 14))
-                        .foregroundStyle(.secondary)
-                        .symbolRenderingMode(.hierarchical)
-                }
-                .buttonStyle(.plain)
-                .transition(.opacity.combined(with: .scale(scale: 0.8)))
+            // Delete button — always in layout, opacity controlled by hover
+            Button(action: onDelete) {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 14))
+                    .foregroundStyle(.secondary)
+                    .symbolRenderingMode(.hierarchical)
             }
+            .buttonStyle(.plain)
+            .opacity(isHovered ? 1 : 0)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
