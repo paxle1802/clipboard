@@ -1,10 +1,41 @@
 import AppKit
 
-// Writes clipboard items back to NSPasteboard for pasting
+// Writes clipboard items back to NSPasteboard and auto-pastes into previous app
 @MainActor
 struct PasteboardWriter {
-    // Write item content back to the system clipboard
-    static func write(_ item: ClipboardItem, monitor: ClipboardMonitor?) {
+    // Write item to clipboard, close panel, and simulate Cmd+V in previous app
+    static func pasteItem(
+        _ item: ClipboardItem, monitor: ClipboardMonitor?
+    ) {
+        writeToClipboard(item, monitor: monitor)
+        dismissAndPaste()
+    }
+
+    // Write plain text only, then auto-paste
+    static func pasteItemAsPlainText(
+        _ item: ClipboardItem, monitor: ClipboardMonitor?
+    ) {
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        pb.setString(item.textContent ?? item.preview, forType: .string)
+        monitor?.syncChangeCount()
+        dismissAndPaste()
+    }
+
+    // Copy to clipboard without pasting (for context menu "Copy")
+    static func copyItem(
+        _ item: ClipboardItem, monitor: ClipboardMonitor?
+    ) {
+        writeToClipboard(item, monitor: monitor)
+        // Just close the panel, don't simulate paste
+        NSApp.keyWindow?.orderOut(nil)
+    }
+
+    // MARK: - Private
+
+    private static func writeToClipboard(
+        _ item: ClipboardItem, monitor: ClipboardMonitor?
+    ) {
         let pb = NSPasteboard.general
         pb.clearContents()
 
@@ -37,17 +68,32 @@ struct PasteboardWriter {
             }
         }
 
-        // Sync monitor's changeCount so it skips this self-triggered change
         monitor?.syncChangeCount()
     }
 
-    // Write plain text only (strips formatting)
-    static func writePlainText(
-        _ item: ClipboardItem, monitor: ClipboardMonitor?
-    ) {
-        let pb = NSPasteboard.general
-        pb.clearContents()
-        pb.setString(item.textContent ?? item.preview, forType: .string)
-        monitor?.syncChangeCount()
+    // Close panel, return focus to previous app, simulate Cmd+V
+    private static func dismissAndPaste() {
+        // Close our panel
+        NSApp.keyWindow?.orderOut(nil)
+        NSApp.hide(nil)
+
+        // Small delay to let previous app regain focus, then simulate Cmd+V
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            simulatePasteKeystroke()
+        }
+    }
+
+    // Simulate Cmd+V keystroke using CGEvent
+    private static func simulatePasteKeystroke() {
+        let source = CGEventSource(stateID: .hidSystemState)
+        // Key code 9 = V key
+        let keyDown = CGEvent(
+            keyboardEventSource: source, virtualKey: 9, keyDown: true)
+        let keyUp = CGEvent(
+            keyboardEventSource: source, virtualKey: 9, keyDown: false)
+        keyDown?.flags = .maskCommand
+        keyUp?.flags = .maskCommand
+        keyDown?.post(tap: .cghidEventTap)
+        keyUp?.post(tap: .cghidEventTap)
     }
 }
