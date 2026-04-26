@@ -154,7 +154,9 @@ struct PopupContentView: View {
                 searchQuery = ""
                 return .handled
             }
-            return .ignored
+            // Close the panel
+            NSApp.keyWindow?.orderOut(nil)
+            return .handled
         }
         .onChange(of: searchQuery) { _, _ in
             // Reset selection when search changes to avoid stale index
