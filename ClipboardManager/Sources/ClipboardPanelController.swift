@@ -45,7 +45,7 @@ final class ClipboardPanelController: NSObject {
 
     private func setupHotkey() {
         KeyboardShortcuts.onKeyUp(for: .toggleClipboardHistory) { [weak self] in
-            MainActor.assumeIsolated {
+            Task { @MainActor in
                 self?.togglePanel()
             }
         }
@@ -126,7 +126,7 @@ final class ClipboardPanelController: NSObject {
         eventMonitor = NSEvent.addGlobalMonitorForEvents(
             matching: [.leftMouseDown, .rightMouseDown]
         ) { [weak self] _ in
-            MainActor.assumeIsolated {
+            Task { @MainActor in
                 self?.hidePanel()
             }
         }

@@ -27,7 +27,7 @@ final class ClipboardMonitor {
         timer = Timer.scheduledTimer(
             withTimeInterval: 0.5, repeats: true
         ) { [weak self] _ in
-            MainActor.assumeIsolated {
+            Task { @MainActor in
                 self?.checkClipboard()
             }
         }
