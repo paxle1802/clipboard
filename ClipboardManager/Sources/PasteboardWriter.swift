@@ -16,10 +16,7 @@ struct PasteboardWriter {
     static func selectItemAsPlainText(
         _ item: ClipboardItem, monitor: ClipboardMonitor?
     ) {
-        let pb = NSPasteboard.general
-        pb.clearContents()
-        pb.setString(item.textContent ?? item.preview, forType: .string)
-        monitor?.syncChangeCount()
+        writeToClipboard(item, monitor: monitor, forcePlainText: true)
         dismissPanel()
     }
 
@@ -33,38 +30,37 @@ struct PasteboardWriter {
     // MARK: - Private
 
     private static func writeToClipboard(
-        _ item: ClipboardItem, monitor: ClipboardMonitor?
+        _ item: ClipboardItem, monitor: ClipboardMonitor?,
+        forcePlainText: Bool = false
     ) {
-        // Stop monitoring temporarily to prevent race condition
-        monitor?.stopMonitoring()
-
         let pb = NSPasteboard.general
-        pb.clearContents()
 
-        switch item.contentType {
-        case .text, .rtf, .html:
-            // Always write as plain string — most reliable for Cmd+V
+        // Write using declareTypes + setString pattern (most compatible)
+        if forcePlainText || item.contentType == .text
+            || item.contentType == .rtf || item.contentType == .html
+        {
             let text = item.textContent ?? item.preview
+            pb.declareTypes([.string], owner: nil)
             pb.setString(text, forType: .string)
-        case .image:
-            if let data = item.imageData {
-                pb.setData(data, forType: .png)
-            }
-        case .fileURL:
-            if let urls = item.fileURLs {
-                pb.writeObjects(urls as [NSURL])
-            }
+        } else if item.contentType == .image, let data = item.imageData {
+            pb.declareTypes([.png], owner: nil)
+            pb.setData(data, forType: .png)
+        } else if item.contentType == .fileURL, let urls = item.fileURLs {
+            pb.clearContents()
+            pb.writeObjects(urls as [NSURL])
         }
 
+        // Tell monitor to skip this change
         monitor?.syncChangeCount()
-        monitor?.startMonitoring()
     }
 
     // Close panel and return focus to previous app
     private static func dismissPanel() {
+        // Close panel first
         for window in NSApp.windows where window.isVisible && window is NSPanel {
             window.orderOut(nil)
         }
+        // Return focus to previous app
         SharedState.shared.panelController?.activatePreviousApp()
     }
 }
