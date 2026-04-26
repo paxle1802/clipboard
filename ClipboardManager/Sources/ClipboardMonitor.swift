@@ -64,11 +64,9 @@ final class ClipboardMonitor {
     private func captureClipboardContent(
         from pb: NSPasteboard
     ) -> ClipboardItem? {
-        // Priority: image > fileURL > rtf > html > text
+        // Priority: image > fileURL > text (always prefer text over rtf/html)
         if let imageItem = captureImage(from: pb) { return imageItem }
         if let fileItem = captureFileURLs(from: pb) { return fileItem }
-        if let rtfItem = captureRTF(from: pb) { return rtfItem }
-        if let htmlItem = captureHTML(from: pb) { return htmlItem }
         if let textItem = captureText(from: pb) { return textItem }
         return nil
     }
