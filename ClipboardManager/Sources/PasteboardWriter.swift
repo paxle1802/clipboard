@@ -35,39 +35,53 @@ struct PasteboardWriter {
     private static func writeToClipboard(
         _ item: ClipboardItem, monitor: ClipboardMonitor?
     ) {
+        // Stop monitoring temporarily to prevent race condition
+        monitor?.stopMonitoring()
+
         let pb = NSPasteboard.general
         pb.clearContents()
+
+        // Use NSPasteboardItem for reliable multi-type writes
+        let pbItem = NSPasteboardItem()
 
         switch item.contentType {
         case .text:
             if let text = item.textContent {
-                pb.setString(text, forType: .string)
+                pbItem.setString(text, forType: .string)
             }
         case .image:
             if let data = item.imageData {
-                pb.setData(data, forType: .png)
+                pbItem.setData(data, forType: .png)
             }
         case .rtf:
             if let data = item.rtfData {
-                pb.setData(data, forType: .rtf)
+                pbItem.setData(data, forType: .rtf)
             }
             if let text = item.textContent {
-                pb.setString(text, forType: .string)
+                pbItem.setString(text, forType: .string)
             }
         case .html:
             if let html = item.htmlContent {
-                pb.setString(html, forType: .html)
+                pbItem.setString(html, forType: .html)
             }
             if let text = item.textContent {
-                pb.setString(text, forType: .string)
+                pbItem.setString(text, forType: .string)
             }
         case .fileURL:
             if let urls = item.fileURLs {
+                // File URLs need writeObjects, not NSPasteboardItem
                 pb.writeObjects(urls as [NSURL])
+                monitor?.syncChangeCount()
+                monitor?.startMonitoring()
+                NSLog("[ClipboardManager] Wrote \(urls.count) file URLs")
+                return
             }
         }
 
+        pb.writeObjects([pbItem])
         monitor?.syncChangeCount()
+        monitor?.startMonitoring()
+        NSLog("[ClipboardManager] Wrote \(item.contentType) to clipboard, changeCount=\(pb.changeCount)")
     }
 
     // Close panel and return focus to previous app
