@@ -2,10 +2,28 @@ import AppKit
 import KeyboardShortcuts
 import SwiftUI
 
-// Custom panel that accepts key events even as a floating panel
+// Custom panel with glass appearance that accepts key events
 final class KeyablePanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
+
+    override func awakeFromNib() {
+        super.awakeFromNib()
+        configureGlassAppearance()
+    }
+
+    func configureGlassAppearance() {
+        // Enable vibrancy for glass liquid effect
+        let visualEffect = NSVisualEffectView(frame: .zero)
+        visualEffect.blendingMode = .behindWindow
+        visualEffect.material = .hudWindow
+        visualEffect.state = .active
+        visualEffect.autoresizingMask = [.width, .height]
+        if let contentView = contentView {
+            visualEffect.frame = contentView.bounds
+            contentView.addSubview(visualEffect, positioned: .below, relativeTo: nil)
+        }
+    }
 }
 
 // Manages a floating NSPanel that displays clipboard history
@@ -74,7 +92,10 @@ final class ClipboardPanelController: NSObject {
         panel.hidesOnDeactivate = true
         panel.animationBehavior = .utilityWindow
         panel.isReleasedWhenClosed = false
-        panel.backgroundColor = .windowBackgroundColor
+        // Transparent background — vibrancy comes from .ultraThinMaterial in SwiftUI
+        panel.backgroundColor = .clear
+        panel.isOpaque = false
+        panel.hasShadow = true
 
         let hostingView = NSHostingView(
             rootView: PopupContentView(store: store, monitor: monitor)
