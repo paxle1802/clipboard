@@ -54,33 +54,45 @@ struct PasteboardWriter {
     // MARK: - Dismiss and auto-paste
 
     private static func dismissAndPaste() {
+        let panelController = SharedState.shared.panelController
+
         // 1. Close panel
         for window in NSApp.windows where window.isVisible && window is NSPanel {
             window.orderOut(nil)
         }
 
-        // 2. Activate previous app
-        SharedState.shared.panelController?.activatePreviousApp()
+        // 2. Activate previous app and wait for it to become frontmost
+        panelController?.activatePreviousApp()
 
-        // 3. Wait for focus switch, then paste via osascript
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+        // 3. Use global dispatch queue for CGEvent (avoids main thread issues)
+        DispatchQueue.global(qos: .userInteractive).asyncAfter(
+            deadline: .now() + 0.5
+        ) {
+            // Re-activate previous app from background thread as well
+            DispatchQueue.main.sync {
+                panelController?.activatePreviousApp()
+            }
+            // Small extra delay after second activation
+            Thread.sleep(forTimeInterval: 0.1)
             simulatePaste()
         }
     }
 
-    // Use osascript subprocess to simulate Cmd+V — more reliable than CGEvent
-    // Requires Accessibility permission for "System Events"
+    // Simulate Cmd+V via CGEvent on background thread
+    // Requires: ClipboardManager in Accessibility settings
     private static func simulatePaste() {
-        let task = Process()
-        task.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
-        task.arguments = [
-            "-e",
-            "tell application \"System Events\" to keystroke \"v\" using command down",
-        ]
-        do {
-            try task.run()
-        } catch {
-            NSLog("[ClipboardManager] osascript paste failed: \(error)")
+        let source = CGEventSource(stateID: .combinedSessionState)
+        guard let keyDown = CGEvent(
+            keyboardEventSource: source, virtualKey: 9, keyDown: true),
+              let keyUp = CGEvent(
+            keyboardEventSource: source, virtualKey: 9, keyDown: false)
+        else {
+            NSLog("[ClipboardManager] CGEvent creation failed")
+            return
         }
+        keyDown.flags = .maskCommand
+        keyUp.flags = .maskCommand
+        keyDown.post(tap: .cgAnnotatedSessionEventTap)
+        keyUp.post(tap: .cgAnnotatedSessionEventTap)
     }
 }
