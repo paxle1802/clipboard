@@ -237,6 +237,14 @@ struct PopupContentView: View {
                         .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
+
+                Button(action: { NSApp.terminate(nil) }) {
+                    Image(systemName: "power")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Quit ClipboardManager")
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
