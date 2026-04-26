@@ -70,24 +70,47 @@ struct PasteboardWriter {
         monitor?.syncChangeCount()
     }
 
-    // Close panel, activate previous app, simulate Cmd+V
+    // Close panel, activate previous app, wait for focus, then paste
     private static func dismissAndPaste() {
+        let panelController = SharedState.shared.panelController
+
         // 1. Close our panel
         for window in NSApp.windows where window.isVisible && window is NSPanel {
             window.orderOut(nil)
         }
 
-        // 2. Activate the app that was focused before we showed the panel
-        SharedState.shared.panelController?.activatePreviousApp()
+        // 2. Activate the previous app and wait until it's actually frontmost
+        panelController?.activatePreviousApp()
 
-        // 3. Wait for previous app to gain focus, then simulate Cmd+V
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+        // 3. Poll until the previous app is frontmost, then simulate Cmd+V
+        //    Max 10 attempts * 50ms = 500ms timeout
+        waitForFocusAndPaste(attempts: 0, maxAttempts: 10)
+    }
+
+    // Retry paste until previous app has focus or we hit max attempts
+    private static func waitForFocusAndPaste(
+        attempts: Int, maxAttempts: Int
+    ) {
+        let frontApp = NSWorkspace.shared.frontmostApplication
+        let ourBundleId = Bundle.main.bundleIdentifier
+
+        // Check if a different app is now frontmost (not us)
+        let otherAppIsFront = frontApp?.bundleIdentifier != ourBundleId
+
+        if otherAppIsFront || attempts >= maxAttempts {
             simulatePasteKeystroke()
+        } else {
+            // Re-activate and retry after 50ms
+            SharedState.shared.panelController?.activatePreviousApp()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                waitForFocusAndPaste(
+                    attempts: attempts + 1, maxAttempts: maxAttempts)
+            }
         }
     }
 
     // Simulate Cmd+V keystroke using CGEvent
-    // NOTE: Requires Accessibility permission in System Settings
+    // Requires Accessibility permission in System Settings
     private static func simulatePasteKeystroke() {
         let source = CGEventSource(stateID: .hidSystemState)
         // Key code 9 = V key

@@ -111,7 +111,7 @@ final class ClipboardPanelController: NSObject {
 
     // Activate the app that was in focus before we opened the panel
     func activatePreviousApp() {
-        previousApp?.activate()
+        previousApp?.activate(options: [.activateIgnoringOtherApps])
     }
 
     private func hidePanel() {
