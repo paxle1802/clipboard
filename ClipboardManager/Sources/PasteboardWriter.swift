@@ -62,96 +62,15 @@ struct PasteboardWriter {
         // 2. Activate previous app
         SharedState.shared.panelController?.activatePreviousApp()
 
-        // 3. Wait for focus, then invoke Paste via Accessibility menu API
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-            performPasteViaMenu()
+        // 3. Wait for focus, then simulate Cmd+V via CGEvent
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            simulateCmdV()
         }
     }
 
-    // Find and click Edit > Paste in the frontmost app's menu bar
-    // Uses Accessibility API — no keystroke simulation needed
-    private static func performPasteViaMenu() {
-        guard let frontApp = NSWorkspace.shared.frontmostApplication else {
-            return
-        }
-        let appElement = AXUIElementCreateApplication(frontApp.processIdentifier)
-
-        // Get menu bar
-        var menuBarRef: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(
-            appElement, kAXMenuBarAttribute as CFString, &menuBarRef
-        ) == .success, let menuBar = menuBarRef else { return }
-
-        // Iterate menu bar items to find Edit menu
-        var childrenRef: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(
-            menuBar as! AXUIElement, kAXChildrenAttribute as CFString,
-            &childrenRef
-        ) == .success, let menus = childrenRef as? [AXUIElement] else {
-            return
-        }
-
-        for menu in menus {
-            var titleRef: CFTypeRef?
-            AXUIElementCopyAttributeValue(
-                menu, kAXTitleAttribute as CFString, &titleRef)
-            guard let title = titleRef as? String else { continue }
-
-            // Match "Edit" menu (English/Vietnamese/other locales)
-            if title == "Edit" || title == "Sửa" || title == "編集" {
-                // Open the Edit menu
-                AXUIElementPerformAction(menu, kAXPressAction as CFString)
-
-                // Small delay for menu to open
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    clickPasteMenuItem(in: menu)
-                }
-                return
-            }
-        }
-
-        // Fallback: if no Edit menu found, try CGEvent as last resort
-        fallbackCGEventPaste()
-    }
-
-    // Find and click "Paste" item inside the Edit menu
-    private static func clickPasteMenuItem(in editMenu: AXUIElement) {
-        var subMenuRef: CFTypeRef?
-        // Get the submenu children of the Edit menu
-        guard AXUIElementCopyAttributeValue(
-            editMenu, kAXChildrenAttribute as CFString, &subMenuRef
-        ) == .success, let subMenus = subMenuRef as? [AXUIElement] else {
-            fallbackCGEventPaste()
-            return
-        }
-
-        for subMenu in subMenus {
-            var itemsRef: CFTypeRef?
-            AXUIElementCopyAttributeValue(
-                subMenu, kAXChildrenAttribute as CFString, &itemsRef)
-            guard let items = itemsRef as? [AXUIElement] else { continue }
-
-            for item in items {
-                var itemTitle: CFTypeRef?
-                AXUIElementCopyAttributeValue(
-                    item, kAXTitleAttribute as CFString, &itemTitle)
-                if let name = itemTitle as? String,
-                   name == "Paste" || name == "Dán" || name == "ペースト"
-                    || name == "貼上"
-                {
-                    AXUIElementPerformAction(
-                        item, kAXPressAction as CFString)
-                    return
-                }
-            }
-        }
-
-        // If Paste not found, fallback to CGEvent
-        fallbackCGEventPaste()
-    }
-
-    // Last resort: CGEvent Cmd+V
-    private static func fallbackCGEventPaste() {
+    // Simulate Cmd+V via CGEvent — invisible, no menu flash
+    // Requires: Release build + Accessibility permission
+    private static func simulateCmdV() {
         let source = CGEventSource(stateID: .combinedSessionState)
         guard let down = CGEvent(
             keyboardEventSource: source, virtualKey: 9, keyDown: true),
