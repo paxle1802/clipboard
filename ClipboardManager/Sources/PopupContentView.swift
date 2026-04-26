@@ -156,20 +156,16 @@ struct PopupContentView: View {
                                     : Color.clear)
                         )
                         .onTapGesture {
-                            PasteboardWriter.pasteItem(
+                            PasteboardWriter.selectItem(
                                 item, monitor: monitor)
                         }
                         .contextMenu {
-                            Button("Paste") {
-                                PasteboardWriter.pasteItem(
+                            Button("Copy") {
+                                PasteboardWriter.selectItem(
                                     item, monitor: monitor)
                             }
-                            Button("Copy to Clipboard") {
-                                PasteboardWriter.copyItem(
-                                    item, monitor: monitor)
-                            }
-                            Button("Paste as Plain Text") {
-                                PasteboardWriter.pasteItemAsPlainText(
+                            Button("Copy as Plain Text") {
+                                PasteboardWriter.selectItemAsPlainText(
                                     item, monitor: monitor)
                             }
                             Divider()
@@ -265,6 +261,6 @@ struct PopupContentView: View {
         guard let idx = selectedIndex, idx < filteredItems.count else {
             return
         }
-        PasteboardWriter.pasteItem(filteredItems[idx], monitor: monitor)
+        PasteboardWriter.selectItem(filteredItems[idx], monitor: monitor)
     }
 }

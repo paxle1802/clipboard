@@ -1,33 +1,33 @@
 import AppKit
 
-// Writes clipboard items back to NSPasteboard and auto-pastes into previous app
+// Writes clipboard items back to NSPasteboard and closes panel
+// User then Cmd+V to paste — standard behavior for clipboard managers
 @MainActor
 struct PasteboardWriter {
-    // Write item to clipboard, close panel, and simulate Cmd+V in previous app
-    static func pasteItem(
+    // Copy item to clipboard and close panel
+    static func selectItem(
         _ item: ClipboardItem, monitor: ClipboardMonitor?
     ) {
         writeToClipboard(item, monitor: monitor)
-        dismissAndPaste()
+        dismissPanel()
     }
 
-    // Write plain text only, then auto-paste
-    static func pasteItemAsPlainText(
+    // Copy plain text only and close panel
+    static func selectItemAsPlainText(
         _ item: ClipboardItem, monitor: ClipboardMonitor?
     ) {
         let pb = NSPasteboard.general
         pb.clearContents()
         pb.setString(item.textContent ?? item.preview, forType: .string)
         monitor?.syncChangeCount()
-        dismissAndPaste()
+        dismissPanel()
     }
 
-    // Copy to clipboard without pasting (for context menu "Copy")
+    // Copy to clipboard without closing panel (context menu "Copy")
     static func copyItem(
         _ item: ClipboardItem, monitor: ClipboardMonitor?
     ) {
         writeToClipboard(item, monitor: monitor)
-        NSApp.keyWindow?.orderOut(nil)
     }
 
     // MARK: - Private
@@ -70,59 +70,11 @@ struct PasteboardWriter {
         monitor?.syncChangeCount()
     }
 
-    // Close panel, activate previous app, wait for focus, then paste
-    private static func dismissAndPaste() {
-        let panelController = SharedState.shared.panelController
-
-        // 1. Close our panel
+    // Close panel and return focus to previous app
+    private static func dismissPanel() {
         for window in NSApp.windows where window.isVisible && window is NSPanel {
             window.orderOut(nil)
         }
-
-        // 2. Activate the previous app and wait until it's actually frontmost
-        panelController?.activatePreviousApp()
-
-        // 3. Poll until the previous app is frontmost, then simulate Cmd+V
-        //    Max 10 attempts * 50ms = 500ms timeout
-        waitForFocusAndPaste(attempts: 0, maxAttempts: 10)
-    }
-
-    // Retry paste until previous app has focus or we hit max attempts
-    private static func waitForFocusAndPaste(
-        attempts: Int, maxAttempts: Int
-    ) {
-        let frontApp = NSWorkspace.shared.frontmostApplication
-        let ourBundleId = Bundle.main.bundleIdentifier
-
-        // Check if a different app is now frontmost (not us)
-        let otherAppIsFront = frontApp?.bundleIdentifier != ourBundleId
-
-        if otherAppIsFront || attempts >= maxAttempts {
-            simulatePasteKeystroke()
-        } else {
-            // Re-activate and retry after 50ms
-            SharedState.shared.panelController?.activatePreviousApp()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                waitForFocusAndPaste(
-                    attempts: attempts + 1, maxAttempts: maxAttempts)
-            }
-        }
-    }
-
-    // Simulate Cmd+V keystroke using CGEvent
-    // Requires Accessibility permission in System Settings
-    private static func simulatePasteKeystroke() {
-        let source = CGEventSource(stateID: .hidSystemState)
-        // Key code 9 = V key
-        guard let keyDown = CGEvent(
-            keyboardEventSource: source, virtualKey: 9, keyDown: true),
-              let keyUp = CGEvent(
-            keyboardEventSource: source, virtualKey: 9, keyDown: false)
-        else { return }
-
-        keyDown.flags = .maskCommand
-        keyUp.flags = .maskCommand
-        keyDown.post(tap: .cghidEventTap)
-        keyUp.post(tap: .cghidEventTap)
+        SharedState.shared.panelController?.activatePreviousApp()
     }
 }
