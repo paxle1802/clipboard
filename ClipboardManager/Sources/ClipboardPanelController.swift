@@ -5,7 +5,7 @@ import SwiftUI
 // Manages a floating NSPanel that displays clipboard history
 // Toggled by global hotkey (Cmd+Shift+V) or menu bar icon click
 @MainActor
-final class ClipboardPanelController {
+final class ClipboardPanelController: NSObject {
     private var panel: NSPanel?
     private let store: ClipboardStore
     private let monitor: ClipboardMonitor
@@ -17,6 +17,7 @@ final class ClipboardPanelController {
     init(store: ClipboardStore, monitor: ClipboardMonitor) {
         self.store = store
         self.monitor = monitor
+        super.init()
         setupStatusItem()
         setupHotkey()
         setupPanel()
