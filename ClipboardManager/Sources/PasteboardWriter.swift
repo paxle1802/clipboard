@@ -1,33 +1,32 @@
 import AppKit
 
-// Writes clipboard items back to NSPasteboard and closes panel
-// User then Cmd+V to paste — standard behavior for clipboard managers
+// Writes clipboard items back to NSPasteboard, closes panel, auto-pastes
 @MainActor
 struct PasteboardWriter {
-    // Copy item to clipboard and close panel
+    // Copy item to clipboard, close panel, auto-paste into previous app
     static func selectItem(
         _ item: ClipboardItem, monitor: ClipboardMonitor?
     ) {
         writeToClipboard(item, monitor: monitor)
-        dismissPanel()
+        dismissAndPaste()
     }
 
-    // Copy plain text only and close panel
+    // Copy plain text only, close panel, auto-paste
     static func selectItemAsPlainText(
         _ item: ClipboardItem, monitor: ClipboardMonitor?
     ) {
         writeToClipboard(item, monitor: monitor, forcePlainText: true)
-        dismissPanel()
+        dismissAndPaste()
     }
 
-    // Copy to clipboard without closing panel (context menu "Copy")
+    // Copy to clipboard only (context menu "Copy")
     static func copyItem(
         _ item: ClipboardItem, monitor: ClipboardMonitor?
     ) {
         writeToClipboard(item, monitor: monitor)
     }
 
-    // MARK: - Private
+    // MARK: - Clipboard write
 
     private static func writeToClipboard(
         _ item: ClipboardItem, monitor: ClipboardMonitor?,
@@ -35,7 +34,6 @@ struct PasteboardWriter {
     ) {
         let pb = NSPasteboard.general
 
-        // Write using declareTypes + setString pattern (most compatible)
         if forcePlainText || item.contentType == .text
             || item.contentType == .rtf || item.contentType == .html
         {
@@ -50,17 +48,39 @@ struct PasteboardWriter {
             pb.writeObjects(urls as [NSURL])
         }
 
-        // Tell monitor to skip this change
         monitor?.syncChangeCount()
     }
 
-    // Close panel and return focus to previous app
-    private static func dismissPanel() {
-        // Close panel first
+    // MARK: - Dismiss and auto-paste
+
+    private static func dismissAndPaste() {
+        // 1. Close panel
         for window in NSApp.windows where window.isVisible && window is NSPanel {
             window.orderOut(nil)
         }
-        // Return focus to previous app
+
+        // 2. Activate previous app
         SharedState.shared.panelController?.activatePreviousApp()
+
+        // 3. Wait for focus switch, then paste via osascript
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            simulatePaste()
+        }
+    }
+
+    // Use osascript subprocess to simulate Cmd+V — more reliable than CGEvent
+    // Requires Accessibility permission for "System Events"
+    private static func simulatePaste() {
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+        task.arguments = [
+            "-e",
+            "tell application \"System Events\" to keystroke \"v\" using command down",
+        ]
+        do {
+            try task.run()
+        } catch {
+            NSLog("[ClipboardManager] osascript paste failed: \(error)")
+        }
     }
 }
